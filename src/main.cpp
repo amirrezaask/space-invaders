@@ -52,33 +52,50 @@ SDL_Surface* create_player_ship() {
     return player_surface;
 }
 
+SDL_Window* init_main_window(){
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        check_error();
+
+    SDL_Window* window = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+    return window;
+}
+
+SDL_Rect get_player_pos_rect(int ship_width, int ship_height) {
+    SDL_Rect rect;
+    rect.x = (WINDOW_WIDTH - ship_width) / 2;
+    rect.y = WINDOW_HEIGHT - (WINDOW_HEIGHT - ship_height) / 6;
+    rect.h = ship_height;
+    rect.w = ship_width;
+
+    return rect;
+}
+
 
 int main() {
-  if (SDL_Init(SDL_INIT_VIDEO) < 0)
-      check_error();
+    SDL_Window *main_window = init_main_window();
+    
+    SDL_Surface* main_surface = SDL_GetWindowSurface(main_window);
+    PIXEL_FORMAT = main_surface->format;
 
-  SDL_Window* window = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+    SDL_Surface* player_ship = create_player_ship();
   
-  SDL_Surface* main_surface = SDL_GetWindowSurface(window);
-  PIXEL_FORMAT = main_surface->format;
+    // game background
+    set_background_color_for_surface(main_surface, 0, 0, 0);
 
-  SDL_Surface* player_ship = create_player_ship();
+    SDL_Rect player_rect = get_player_pos_rect(player_ship->w, player_ship->h);
+    
+    SDL_BlitSurface(player_ship, NULL, main_surface, &player_rect);
   
-  // game background
-  set_background_color_for_surface(main_surface, 0, 0, 0);
-  
-  SDL_BlitSurface(player_ship, NULL, main_surface, NULL);
-  
-  SDL_UpdateWindowSurface(window);
-  while(true) {
-      SDL_Event event;
-      if (SDL_PollEvent(&event) > 0) {
-          switch(event.type) {
-          case SDL_QUIT: {
-              return 0;
-          }
-          }
-      };
+    SDL_UpdateWindowSurface(main_window);
+    while(true) {
+        SDL_Event event;
+        if (SDL_PollEvent(&event) > 0) {
+            switch(event.type) {
+            case SDL_QUIT: {
+                return 0;
+            }
+            }
+        };
       
-  }
+    }
 }

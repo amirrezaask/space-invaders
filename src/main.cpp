@@ -31,7 +31,7 @@ int main() {
 
 
 
-  SDL_Window* window = SDL_CreateWindow("Pinball", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+  SDL_Window* window = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
   
   SDL_Surface* main_surface = SDL_GetWindowSurface(window);
 

@@ -3,6 +3,7 @@
 #include "SDL2/SDL_events.h"
 #include "SDL2/SDL_pixels.h"
 #include "SDL2/SDL_render.h"
+#include "SDL2/SDL_surface.h"
 #include "cstdio"
 #include "iostream"
 #include "vector"
@@ -15,10 +16,12 @@
 #define WINDOW_HEIGHT 900
 #define u8 Uint8
 #define PLAYER_SHIP_ASSET_PATH "./assets/player.png"
-#define ENEMY_SHIP_ASSET_PATH "./assets/enemy.png"
+#define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
+#define ENEMY2_SHIP_ASSET_PATH "./assets/enemy2.png"
+#define ENEMY3_SHIP_ASSET_PATH "./assets/enemy3.png"
 #define ROCKET_ASSET_PATH "./assets/rocket.png"
 #define ENEMY_GRID_COLS 5
-#define ENEMY_GRID_ROWS 2
+#define ENEMY_GRID_ROWS 5
 
 struct Ship;
 struct Rocket;
@@ -363,27 +366,32 @@ void game_loop(SDL_Window* window) {
         }
     }
 }
+std::vector<SDL_Surface*> enemy_surfaces;
+std::vector<SDL_Texture*> enemy_textures;
 
-void add_enemies(SDL_Surface* surface, SDL_Texture* texture) {
-    int enemy_x_padding = 100;
-    int enemy_y_padding = 100;
-    int x_offset_from_edge = (WINDOW_WIDTH - ((enemy_x_padding * (ENEMY_GRID_COLS - 1)) + (ENEMY_GRID_COLS * surface->w))) / 2;
-    printf("enemy ship width: %d\n", surface->w);
-    printf("x_offset is %d\n", x_offset_from_edge);
-
+void add_enemies() {
     for (int i = 0;i<ENEMY_GRID_ROWS;i++){
         for (int j=0;j<ENEMY_GRID_COLS;j++) {
-                Ship* ship = new Ship;
+            Ship* ship = new Ship;
+            int id = rand() % 3;
+            printf("using rendering enemy: %d\n", id+1);
 
-                ship->pos.x = x_offset_from_edge + (j * enemy_x_padding) + (j-1 * surface->w);
-                ship->pos.y = (WINDOW_HEIGHT / 8) + i * enemy_y_padding;
-                ship->h = surface->h;
-                ship->w = surface->w;
-                ship->texture = texture;
-                ship->side = Side_Enemy;
-                ship->destroyed = false;
+            SDL_Surface* surface = enemy_surfaces[id];
+            SDL_Texture* texture = enemy_textures[id];
+    
+            int enemy_x_padding = 100;
+            int enemy_y_padding = 100;
+            int x_offset_from_edge = (WINDOW_WIDTH - ((enemy_x_padding * (ENEMY_GRID_COLS - 1)) + (ENEMY_GRID_COLS * surface->w))) / 2;
 
-                ships.push_back(ship);
+            ship->pos.x = x_offset_from_edge + (j * enemy_x_padding) + (j-1 * surface->w);
+            ship->pos.y = (WINDOW_HEIGHT / 8) + i * enemy_y_padding;
+            ship->h = surface->h;
+            ship->w = surface->w;
+            ship->texture = texture;
+            ship->side = Side_Enemy;
+            ship->destroyed = false;
+
+            ships.push_back(ship);
         }
     }
 }
@@ -397,10 +405,14 @@ int main() {
 
 
     SDL_Surface* player_ship_surface = load_png(PLAYER_SHIP_ASSET_PATH);
-    SDL_Surface* enemy_ship_surface = load_png(ENEMY_SHIP_ASSET_PATH);
+    SDL_Surface* enemy1_ship_surface = load_png(ENEMY1_SHIP_ASSET_PATH);
+    SDL_Surface* enemy2_ship_surface = load_png(ENEMY2_SHIP_ASSET_PATH);
+    SDL_Surface* enemy3_ship_surface = load_png(ENEMY3_SHIP_ASSET_PATH);
 
     SDL_Texture* player_ship_texture = SDL_CreateTextureFromSurface(main_renderer, player_ship_surface);
-    SDL_Texture* enemy_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy_ship_surface);
+    SDL_Texture* enemy1_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy1_ship_surface);
+    SDL_Texture* enemy2_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy2_ship_surface);
+    SDL_Texture* enemy3_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy3_ship_surface);
 
     if (player_ship_texture == NULL) printf("cannot create player ship texture\n: %s", SDL_GetError());
 
@@ -413,7 +425,15 @@ int main() {
                                   Side_Player);
     
     ships.push_back(player_ship);
-    add_enemies(enemy_ship_surface, enemy_ship_texture);
+    enemy_surfaces.push_back(enemy1_ship_surface);
+    enemy_surfaces.push_back(enemy2_ship_surface);
+    enemy_surfaces.push_back(enemy3_ship_surface);
+    
+    enemy_textures.push_back(enemy1_ship_texture);
+    enemy_textures.push_back(enemy2_ship_texture);
+    enemy_textures.push_back(enemy3_ship_texture);
+        
+    add_enemies();
     printf("Window Width: %d Window height: %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
     printf("number of enemeis are: %lu\n", ships.size());
 

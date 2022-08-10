@@ -1,14 +1,33 @@
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_Image.h"
+#include "SDL2/SDL_events.h"
 #include "SDL2/SDL_pixels.h"
+#include "SDL2/SDL_render.h"
 #include "cstdio"
 #include "iostream"
+#include "vector"
 #include "string"
 #include "cstdlib"
+#include <cassert>
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 900
 #define u8 Uint8
+#define PLAYER_SHIP_ASSET_PATH "./assets/player.png"
+#define ENEMY_SHIP_ASSET_PATH "./assets/enemy.png"
+#define ROCKET_ASSET_PATH "./assets/rocket.png"
+#define ENEMY_GRID_COLS 10
+#define ENEMY_GRID_ROWS 5
+
+struct Ship;
+struct Rocket;
+
+SDL_Rect* ship_get_rect(Ship* ship);
+SDL_Texture* rocket_texture;
+SDL_Surface* rocket_surface;
+std::vector<Ship*> ships;
+SDL_Renderer* main_renderer;
+
 
 SDL_PixelFormat* PIXEL_FORMAT;
 
@@ -23,18 +42,10 @@ SDL_Surface* optimize_surface(SDL_Surface* surface, SDL_PixelFormat* format) {
     return optimized;
 }
 
-void initiate_image_subsystem() {
-    int imgFlags = IMG_INIT_PNG;
-    if(!(IMG_Init(imgFlags) & imgFlags)) {
-        printf("%s", IMG_GetError());
-        exit(1);
-    }
-}
-
 SDL_Surface* load_png(std::string path) {
     SDL_Surface* surface = IMG_Load(path.c_str());
+    return surface;
 
-    return optimize_surface(surface, PIXEL_FORMAT);
 }
 
 SDL_Surface* load_bmp_file(std::string path) {
@@ -46,56 +57,279 @@ void set_background_color_for_surface(SDL_Surface* surface, u8 r, u8 g, u8 b) {
     if(SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, r, g, b)) < 0 ) check_error();
 }
 
-SDL_Surface* create_player_ship() {
-    SDL_Surface* player_surface = load_png("./assets/player.png");
 
-    return player_surface;
-}
 
 SDL_Window* init_main_window(){
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
         check_error();
+    int imgFlags = IMG_INIT_PNG;
+    if(!(IMG_Init(imgFlags) & imgFlags)) {
+        printf("%s", IMG_GetError());
+        exit(1);
+    }
 
     SDL_Window* window = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
     return window;
 }
 
-SDL_Rect get_player_pos_rect(int ship_width, int ship_height) {
-    SDL_Rect rect;
-    rect.x = (WINDOW_WIDTH - ship_width) / 2;
-    rect.y = WINDOW_HEIGHT - (WINDOW_HEIGHT - ship_height) / 6;
-    rect.h = ship_height;
-    rect.w = ship_width;
+// ------------------------------- Game stuff -----------------------
+const std::string YOU_WON_TEXT = "You won, nice job";
+const std::string YOU_LOST_TEXT = "You lost, get gud";
+
+enum Side {
+    Side_Player,
+    Side_Enemy,
+};
+
+enum Direction {
+   Direction_Up,
+   Direction_Down,
+   Direction_Left,
+   Direction_Right,
+   Direction_UpLeft,
+   Direction_UpRight,
+   Direction_DownLeft,
+   Direction_DownRight
+};
+
+struct Vector2 {
+    int x, y;
+};
+
+struct Ship {
+    Vector2 pos;
+    int h;
+    int w;
+    SDL_Texture* texture;
+    bool destroyed;
+    Side side;
+
+};
+
+struct Rocket {
+    Vector2 pos;
+    SDL_Surface* surface;
+    bool destroyed;
+    Direction direction;
+    Side side;
+};
+
+Rocket* make_rocket(int x, int y, SDL_Surface* surface, Direction direction, Side side) {
+    Rocket *rocket = new Rocket;
+    Vector2 pos;
+    pos.x = x;
+    pos.y = y;
+    rocket->pos = pos;
+    rocket->side = side;
+    rocket->surface = surface;
+    rocket->direction = direction;
+    return rocket;
+
+}
+
+Ship* make_ship(int x, int y, int w, int h, SDL_Texture* texture, Side side) {
+    Ship *ship = new Ship;
+    Vector2 pos;
+    pos.x = x;
+    pos.y = y;
+    ship->w = w;
+    ship->h = h;
+    ship->pos = pos;
+    ship->side = side;
+    ship->texture = texture;
+    return ship;
+}
+void move_ship(Ship* ship, Direction direction) {
+    switch (direction) {
+    case Direction_Up:
+        ship->pos.y -= 10;
+        break;
+    case Direction_Down:
+        ship->pos.y += 10;
+        break;
+
+    case Direction_Right:
+        ship->pos.x += 20;
+        break;
+    case Direction_Left:
+        ship->pos.x -= 20;
+        break;
+        // TODO handle other directions    
+    default:
+        printf("unhandled direction for a rocket");
+        exit(0);
+    }
+}
+
+void move_rocket(Rocket* rocket) {
+    switch (rocket->direction) {
+    case Direction_Up:
+        rocket->pos.y -= 1;
+        break;
+    case Direction_Down:
+        rocket->pos.y += 1;
+        break;
+    default:
+        printf("unhandled direction for a rocket");
+        exit(0);
+    }
+}
+
+SDL_Rect* ship_get_rect(Ship* ship) {
+    SDL_Rect* rect = new SDL_Rect;
+    rect->x = ship->pos.x;
+    rect->y = ship->pos.y;
+    rect->h = ship->h;
+    rect->w = ship->w;
 
     return rect;
+}
+
+void shoot_rocket(Ship* ship) {
+    Direction direction;
+    int delta;
+    if (ship->side == Side_Enemy) {
+        direction = Direction_Down;
+        delta = 1;
+    }
+    
+    
+    if (ship->side == Side_Player){
+        direction = Direction_Up;
+        delta = -1;
+    }
+
+    make_rocket(ship->pos.x, ship->pos.y + delta, rocket_surface, direction, ship->side);
+}
+
+void draw_ship(Ship* ship) {
+    //TODO @CheckError
+    SDL_RenderCopy(main_renderer, ship->texture, NULL, ship_get_rect(ship));
+}
+
+
+
+void update_states() {
+    // update rocket positions
+    // find colisions of rockets
+    // find colisions of ships
+    // move ships
+    // check for win or lose
+}
+
+void render(SDL_Window* window) {
+    SDL_RenderClear(main_renderer);
+    for (Ship* ship: ships) {
+        draw_ship(ship);
+    }
+
+    SDL_RenderPresent(main_renderer);
+}
+
+void game_loop(SDL_Window* window) {
+
+    while(true) {
+        SDL_Event event;
+        if (SDL_PollEvent(&event) > 0) {
+            switch(event.type) {
+            case SDL_QUIT: {
+                return;
+            }
+            case SDL_KEYDOWN: {
+                switch (event.key.keysym.sym) {
+                case SDLK_UP: {
+                    move_ship(ships[0], Direction_Up);
+                    break;
+                }
+                case SDLK_DOWN: {
+                    move_ship(ships[0], Direction_Down);
+                    break;
+                }
+                case SDLK_LEFT: {
+                    move_ship(ships[0], Direction_Left);
+                    break;
+                }
+                case SDLK_RIGHT: {
+                    move_ship(ships[0], Direction_Right);
+                    break;
+                }
+
+                }
+                render(window);
+            }
+
+            default: {
+                render(window);
+            }
+                
+            };
+      
+        } else {
+            render(window);
+        }
+    }
+}
+
+void add_enemies(SDL_Surface* surface, SDL_Texture* texture) {
+    int enemy_x_delta = 2;
+    int x_offset = (WINDOW_WIDTH - ((enemy_x_delta * (ENEMY_GRID_COLS - 1)) + (ENEMY_GRID_COLS * surface->w))) / 2;
+    printf("enemy ship width: %d\n", surface->w);
+    printf("x_offset is %d\n", x_offset);
+
+    for (int i = 0;i<ENEMY_GRID_ROWS;i++){
+        for (int j=0;j<ENEMY_GRID_COLS;j++) {
+                Ship* ship = new Ship;
+
+                ship->pos.x = x_offset + (j * enemy_x_delta) + (j-1 * surface->w);
+                ship->pos.y = (WINDOW_HEIGHT /8) + i;
+                ship->h = surface->h;
+                ship->w = surface->w;
+                ship->texture = texture;
+                ship->side = Side_Enemy;
+                ship->destroyed = false;
+
+                ships.push_back(ship);
+        }
+    }
 }
 
 
 int main() {
     SDL_Window *main_window = init_main_window();
     
-    SDL_Surface* main_surface = SDL_GetWindowSurface(main_window);
-    PIXEL_FORMAT = main_surface->format;
+    //    SDL_Surface* main_surface = SDL_GetWindowSurface(main_window);
 
-    SDL_Surface* player_ship = create_player_ship();
+    main_renderer = SDL_CreateRenderer(main_window, -1, 0);
+    if (main_renderer == NULL) printf("cannot create main renderer: %s", SDL_GetError());
+    //PIXEL_FORMAT = main_surface->format;
+
+
+    SDL_Surface* player_ship_surface = load_png(PLAYER_SHIP_ASSET_PATH);
+    SDL_Surface* enemy_ship_surface = load_png(ENEMY_SHIP_ASSET_PATH);
+
+    SDL_Texture* player_ship_texture = SDL_CreateTextureFromSurface(main_renderer, player_ship_surface);
+    SDL_Texture* enemy_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy_ship_surface);
+
+    if (player_ship_texture == NULL) printf("cannot create player ship texture\n: %s", SDL_GetError());
+
+    rocket_surface = load_png(ROCKET_ASSET_PATH);
+
+    Ship* player_ship = make_ship((WINDOW_WIDTH - player_ship_surface->w) / 2,
+                                  (WINDOW_HEIGHT - (WINDOW_HEIGHT - player_ship_surface->h) / 6),
+                                  player_ship_surface->w, player_ship_surface->h,
+                                  player_ship_texture,
+                                  Side_Player);
+    
+    ships.push_back(player_ship);
+    add_enemies(enemy_ship_surface, enemy_ship_texture);
+    printf("Window Width: %d Window height: %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
+    printf("number of enemeis are: %lu\n", ships.size());
+
   
     // game background
-    set_background_color_for_surface(main_surface, 0, 0, 0);
+    //    set_background_color_for_surface(main_surface, 0, 0, 0);
 
-    SDL_Rect player_rect = get_player_pos_rect(player_ship->w, player_ship->h);
-    
-    SDL_BlitSurface(player_ship, NULL, main_surface, &player_rect);
-  
-    SDL_UpdateWindowSurface(main_window);
-    while(true) {
-        SDL_Event event;
-        if (SDL_PollEvent(&event) > 0) {
-            switch(event.type) {
-            case SDL_QUIT: {
-                return 0;
-            }
-            }
-        };
-      
-    }
+    game_loop(main_window);
+   
 }

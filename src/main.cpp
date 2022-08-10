@@ -9,6 +9,7 @@
 #include "string"
 #include "cstdlib"
 #include <cassert>
+#include <cstdlib>
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 900
@@ -16,20 +17,21 @@
 #define PLAYER_SHIP_ASSET_PATH "./assets/player.png"
 #define ENEMY_SHIP_ASSET_PATH "./assets/enemy.png"
 #define ROCKET_ASSET_PATH "./assets/rocket.png"
-#define ENEMY_GRID_COLS 10
-#define ENEMY_GRID_ROWS 5
+#define ENEMY_GRID_COLS 5
+#define ENEMY_GRID_ROWS 2
 
 struct Ship;
 struct Rocket;
 
 SDL_Rect* ship_get_rect(Ship* ship);
-SDL_Texture* rocket_texture;
 SDL_Surface* rocket_surface;
+SDL_Texture* rocket_texture;
 std::vector<Ship*> ships;
 SDL_Renderer* main_renderer;
 
-
-SDL_PixelFormat* PIXEL_FORMAT;
+int random_number() {
+    return rand() % 50 + 1;
+}
 
 void check_error() {
     printf("%s", SDL_GetError());
@@ -46,11 +48,6 @@ SDL_Surface* load_png(std::string path) {
     SDL_Surface* surface = IMG_Load(path.c_str());
     return surface;
 
-}
-
-SDL_Surface* load_bmp_file(std::string path) {
-    SDL_Surface* raw_surface = SDL_LoadBMP(path.c_str());
-    return optimize_surface(raw_surface, PIXEL_FORMAT);
 }
 
 void set_background_color_for_surface(SDL_Surface* surface, u8 r, u8 g, u8 b) {
@@ -90,8 +87,24 @@ enum Direction {
    Direction_UpLeft,
    Direction_UpRight,
    Direction_DownLeft,
-   Direction_DownRight
+   Direction_DownRight,
+   Direction_NoMove
 };
+
+Direction get_random_direction() {
+    int num = random_number();
+    switch (num) {
+    case 1: return Direction_Up;
+    case 2: return Direction_Down;
+    case 3: return Direction_Left;
+    case 4: return Direction_Right;
+    case 5: return Direction_DownRight;
+    case 6: return Direction_DownLeft;
+    case 7: return Direction_UpRight;
+    case 8: return Direction_UpLeft;
+    default: return Direction_NoMove;
+    }
+}
 
 struct Vector2 {
     int x, y;
@@ -140,13 +153,60 @@ Ship* make_ship(int x, int y, int w, int h, SDL_Texture* texture, Side side) {
     ship->texture = texture;
     return ship;
 }
-void move_ship(Ship* ship, Direction direction) {
+bool can_move_to_this(Ship* ship, Direction direction) {
+    int new_y;
+    int new_x;
     switch (direction) {
     case Direction_Up:
-        ship->pos.y -= 10;
+        new_y = ship->pos.y - 20;
+        if (new_y < 0) return false;
+        return true;
+
+    case Direction_Down:
+        new_y = ship->pos.y + 20;
+        if (new_y > WINDOW_HEIGHT - 100) return false;
+        return true;
+
+    case Direction_Right:
+        new_x = ship->pos.x + 20;
+        if (new_x > WINDOW_WIDTH - 100) return false;
+        return true;
+
+    case Direction_Left:
+        new_x = ship->pos.x - 20;
+        if(new_x < 0) return false;
+        return true;
+    case Direction_UpLeft:
+        return can_move_to_this(ship, Direction_Up)
+            &&
+            can_move_to_this(ship, Direction_Left);
+
+    case Direction_UpRight:
+        return can_move_to_this(ship, Direction_Up)
+            &&
+            can_move_to_this(ship, Direction_Right);
+        
+    case Direction_DownLeft:
+        return can_move_to_this(ship, Direction_Down)
+            &&
+            can_move_to_this(ship, Direction_Left);
+        
+    case Direction_DownRight:
+        return can_move_to_this(ship, Direction_Down)
+            &&
+            can_move_to_this(ship, Direction_Right);
+    case Direction_NoMove:
+        return true;
+    }
+}
+void move_ship(Ship* ship, Direction direction) {
+
+    switch (direction) {
+    case Direction_Up:
+        ship->pos.y -= 20;
         break;
     case Direction_Down:
-        ship->pos.y += 10;
+        ship->pos.y += 20;
         break;
 
     case Direction_Right:
@@ -155,10 +215,25 @@ void move_ship(Ship* ship, Direction direction) {
     case Direction_Left:
         ship->pos.x -= 20;
         break;
-        // TODO handle other directions    
-    default:
-        printf("unhandled direction for a rocket");
-        exit(0);
+    case Direction_UpLeft:
+        ship->pos.y -= 20;
+        ship->pos.x -= 20;
+        break;
+    case Direction_UpRight:
+        ship->pos.y -= 20;
+        ship->pos.x += 20;
+        break;
+    case Direction_DownLeft:
+        ship->pos.y += 20;
+        ship->pos.x -= 20;
+        break;
+    case Direction_DownRight:
+        ship->pos.y += 20;
+        ship->pos.x += 20;
+        break;
+
+    case Direction_NoMove:
+        break;
     }
 }
 
@@ -215,11 +290,21 @@ void update_states() {
     // find colisions of rockets
     // find colisions of ships
     // move ships
+    for (int i = 1; i < ships.size(); i ++ ) {
+        while (true) {
+            Direction direction = get_random_direction();
+            if (can_move_to_this(ships[i], direction)) {
+                move_ship(ships[i], direction);
+                break;
+            }
+        }
+    }
     // check for win or lose
 }
 
 void render(SDL_Window* window) {
     SDL_RenderClear(main_renderer);
+    update_states();
     for (Ship* ship: ships) {
         draw_ship(ship);
     }
@@ -239,19 +324,27 @@ void game_loop(SDL_Window* window) {
             case SDL_KEYDOWN: {
                 switch (event.key.keysym.sym) {
                 case SDLK_UP: {
-                    move_ship(ships[0], Direction_Up);
+                    if(can_move_to_this(ships[0], Direction_Up)) {
+                        move_ship(ships[0], Direction_Up);
+                    }
                     break;
                 }
                 case SDLK_DOWN: {
-                    move_ship(ships[0], Direction_Down);
+                    if(can_move_to_this(ships[0], Direction_Down)) {
+                        move_ship(ships[0], Direction_Down);
+                    }
                     break;
                 }
                 case SDLK_LEFT: {
-                    move_ship(ships[0], Direction_Left);
+                    if(can_move_to_this(ships[0], Direction_Left)) {
+                        move_ship(ships[0], Direction_Left);
+                    }
                     break;
                 }
                 case SDLK_RIGHT: {
-                    move_ship(ships[0], Direction_Right);
+                    if(can_move_to_this(ships[0], Direction_Right)) {
+                        move_ship(ships[0], Direction_Right);
+                    }
                     break;
                 }
 
@@ -272,17 +365,18 @@ void game_loop(SDL_Window* window) {
 }
 
 void add_enemies(SDL_Surface* surface, SDL_Texture* texture) {
-    int enemy_x_delta = 2;
-    int x_offset = (WINDOW_WIDTH - ((enemy_x_delta * (ENEMY_GRID_COLS - 1)) + (ENEMY_GRID_COLS * surface->w))) / 2;
+    int enemy_x_padding = 100;
+    int enemy_y_padding = 100;
+    int x_offset_from_edge = (WINDOW_WIDTH - ((enemy_x_padding * (ENEMY_GRID_COLS - 1)) + (ENEMY_GRID_COLS * surface->w))) / 2;
     printf("enemy ship width: %d\n", surface->w);
-    printf("x_offset is %d\n", x_offset);
+    printf("x_offset is %d\n", x_offset_from_edge);
 
     for (int i = 0;i<ENEMY_GRID_ROWS;i++){
         for (int j=0;j<ENEMY_GRID_COLS;j++) {
                 Ship* ship = new Ship;
 
-                ship->pos.x = x_offset + (j * enemy_x_delta) + (j-1 * surface->w);
-                ship->pos.y = (WINDOW_HEIGHT /8) + i;
+                ship->pos.x = x_offset_from_edge + (j * enemy_x_padding) + (j-1 * surface->w);
+                ship->pos.y = (WINDOW_HEIGHT / 8) + i * enemy_y_padding;
                 ship->h = surface->h;
                 ship->w = surface->w;
                 ship->texture = texture;
@@ -298,11 +392,8 @@ void add_enemies(SDL_Surface* surface, SDL_Texture* texture) {
 int main() {
     SDL_Window *main_window = init_main_window();
     
-    //    SDL_Surface* main_surface = SDL_GetWindowSurface(main_window);
-
     main_renderer = SDL_CreateRenderer(main_window, -1, 0);
     if (main_renderer == NULL) printf("cannot create main renderer: %s", SDL_GetError());
-    //PIXEL_FORMAT = main_surface->format;
 
 
     SDL_Surface* player_ship_surface = load_png(PLAYER_SHIP_ASSET_PATH);
@@ -327,9 +418,6 @@ int main() {
     printf("number of enemeis are: %lu\n", ships.size());
 
   
-    // game background
-    //    set_background_color_for_surface(main_surface, 0, 0, 0);
-
     game_loop(main_window);
    
 }

@@ -1,3 +1,4 @@
+#define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
 #include "SDL2/SDL_main.h"
@@ -18,7 +19,6 @@
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 900
-#define u8 Uint8
 #define PLAYER_SHIP_ASSET_PATH "./assets/player.png"
 #define ROCKET_ASSET_PATH "./assets/rocket.png"
 #define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
@@ -54,32 +54,28 @@ int random_number() {
     return rand() % (ENEMY_CHANCE_TO_MOVE + 9 + 1);
 }
 
-void check_error_sdl() {
-    printf("%s", SDL_GetError());
-    exit(1);
-}
-void check_error_sdl_text() {
-    printf("%s", TTF_GetError());
+void check_error() {
+    std::cout << "Checking Error: " << SDL_GetError() << "\n";
     exit(1);
 }
 
-SDL_Texture* make_texts() {
+
+void make_texts() {
     TTF_Init();
     TTF_Font *font = TTF_OpenFont(FONT_PATH, FONT_SIZE);
-    if (!font) {
-        check_error_sdl_text();
-    }
+    if (font == NULL) check_error();
+
     SDL_Color text_color = { 0xFF, 0xFF, 0xFF, 0xFF};
     
     SDL_Surface* win_surface = TTF_RenderText_Solid(font, MSG_WIN, text_color);
-    if (win_surface == NULL) check_error_sdl_text();
+    if (win_surface == NULL) check_error();
     SDL_Surface* lost_surface = TTF_RenderText_Solid(font, MSG_LOST, text_color);
-    if (lost_surface == NULL) check_error_sdl_text();
+    if (lost_surface == NULL) check_error();
     
     SDL_Texture* win_texture = SDL_CreateTextureFromSurface(main_renderer, win_surface);
-    if (win_texture == NULL) check_error_sdl_text();
+    if (win_texture == NULL) check_error();
     SDL_Texture* lost_texture = SDL_CreateTextureFromSurface(main_renderer, lost_surface);
-    if (lost_surface == NULL) check_error_sdl_text();
+    if (lost_surface == NULL) check_error();
 
     win_msg_rect.x = (WINDOW_WIDTH - win_surface->w) * 0.5; // Center horizontaly
     win_msg_rect.y = (WINDOW_HEIGHT - win_surface->h) * 0.5; // Center verticaly
@@ -96,6 +92,7 @@ SDL_Texture* make_texts() {
     SDL_FreeSurface(lost_surface);
     TTF_Quit();
 }
+
 SDL_Surface* optimize_surface(SDL_Surface* surface, SDL_PixelFormat* format) {
     SDL_Surface* optimized = SDL_ConvertSurface(surface, format, 0);
     SDL_FreeSurface(surface);
@@ -108,8 +105,8 @@ SDL_Surface* load_png(std::string path) {
 
 }
 
-void set_background_color_for_surface(SDL_Surface* surface, u8 r, u8 g, u8 b) {
-    if(SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, r, g, b)) < 0 ) check_error_sdl();
+void set_background_color_for_surface(SDL_Surface* surface, Uint8 r, Uint8 g, Uint8 b) {
+    if(SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, r, g, b)) < 0 ) check_error();
 }
 
 
@@ -117,7 +114,7 @@ void set_background_color_for_surface(SDL_Surface* surface, u8 r, u8 g, u8 b) {
 SDL_Window* init_main_window(){
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
-        check_error_sdl();
+        check_error();
     int imgFlags = IMG_INIT_PNG;
     if(!(IMG_Init(imgFlags) & imgFlags)) {
         printf("%s", IMG_GetError());
@@ -486,18 +483,8 @@ void update_states() {
     if (ships.size() == 1 && ships[0]->side == Side_Player) result = GameResult_Win;
 }
 
-void render(SDL_Window* window) {
+void render() {
     SDL_RenderClear(main_renderer);
-
-    printf("putting text at x: %d\n", win_msg_rect.x);
-    printf("putting text at y: %d\n", win_msg_rect.y);
-    printf("putting text at h: %d\n", win_msg_rect.h);
-    printf("putting text at w: %d\n", win_msg_rect.w);
-
-    SDL_RenderCopy(main_renderer, win_msg_texture, NULL, &win_msg_rect);
-    int a = 1 + 2;
-    SDL_RenderPresent(main_renderer);
-    return;
     update_states();
 
     if (result != GameResult_OnGoing) {
@@ -564,17 +551,17 @@ void game_loop(SDL_Window* window) {
                 }
 
                 }
-                render(window);
+                render();
             }
 
             default: {
-                render(window);
+                render();
             }
                 
             };
       
         } else {
-            render(window);
+            render();
         }
     }
 }
@@ -608,30 +595,40 @@ void add_enemies() {
 }
 
 
-int main() {
+int main(int argc, char* argv[], char* environment[]) {
     SDL_Window *main_window = init_main_window();
     
     main_renderer = SDL_CreateRenderer(main_window, -1, 0);
-    if (main_renderer == NULL) printf("cannot create main renderer: %s", SDL_GetError());
-
+    if (main_renderer == NULL) check_error();
 
     SDL_Surface* player_ship_surface = load_png(PLAYER_SHIP_ASSET_PATH);
     SDL_Surface* enemy1_ship_surface = load_png(ENEMY1_SHIP_ASSET_PATH);
     SDL_Surface* enemy2_ship_surface = load_png(ENEMY2_SHIP_ASSET_PATH);
     SDL_Surface* enemy3_ship_surface = load_png(ENEMY3_SHIP_ASSET_PATH);
     rocket_surface = load_png(ROCKET_ASSET_PATH);
+    if (player_ship_surface == NULL ||
+        enemy1_ship_surface == NULL ||
+        enemy2_ship_surface == NULL ||
+        enemy3_ship_surface == NULL ||
+        rocket_surface == NULL) check_error();
 
     SDL_Texture* player_ship_texture = SDL_CreateTextureFromSurface(main_renderer, player_ship_surface);
     SDL_Texture* enemy1_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy1_ship_surface);
     SDL_Texture* enemy2_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy2_ship_surface);
     SDL_Texture* enemy3_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy3_ship_surface);
     rocket_texture = SDL_CreateTextureFromSurface(main_renderer, rocket_surface);
+    if (player_ship_texture == NULL ||
+        enemy1_ship_texture == NULL ||
+        enemy2_ship_texture == NULL ||
+        enemy3_ship_texture == NULL ||
+        rocket_texture == NULL) check_error();
+
 
     make_texts();
     printf("center text: x %d\n", win_msg_rect.x);
     printf("center text: y %d\n", win_msg_rect.y);
     
-    if (player_ship_texture == NULL) printf("cannot create player ship texture\n: %s", SDL_GetError());
+    if (player_ship_texture == NULL) check_error();
 
     rocket_surface = load_png(ROCKET_ASSET_PATH);
 
@@ -652,9 +649,11 @@ int main() {
         
     add_enemies();
     printf("Window Width: %d Window height: %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
-    printf("number of enemeis are: %lu\n", ships.size());
+    printf("number of enemeis are: %ld\n", ships.size());
 
   
     game_loop(main_window);
+
+    return 0;
    
 }

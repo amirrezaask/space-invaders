@@ -301,10 +301,10 @@ void move_ship(Ship* ship, Direction direction) {
 void move_rocket(Rocket* rocket) {
     switch (rocket->direction) {
     case Direction_Up:
-        rocket->pos.y -= 1;
+        rocket->pos.y -= 10;
         break;
     case Direction_Down:
-        rocket->pos.y += 1;
+        rocket->pos.y += 10;
         break;
     default:
         printf("unhandled direction for a rocket");
@@ -371,6 +371,9 @@ GameResult result = GameResult_OnGoing;
 
 void update_states() {
     // update rocket positions
+    for (Rocket* rocket: rockets) {
+        move_rocket(rocket);
+    }
     // find colisions of rockets
     // find colisions of player and enemies
     for (int i = 1; i<ships.size(); i++) {
@@ -391,8 +394,22 @@ void update_states() {
       
     }
     // find colisions of ships and rockets
+    for (Ship* ship: ships) {
+        for (Rocket* rocket: rockets) {
+            
+        int start_of_hitbox_y = ship->pos.y; 
+        int end_of_hitbox_y = start_of_hitbox_y + ship->h;
+        
+        int start_of_hitbox_x = ship->pos.x; 
+        int end_of_hitbox_x = start_of_hitbox_x + ship->w;
 
-
+        if (start_of_hitbox_x < rocket->pos.x && rocket->pos.x < end_of_hitbox_x && start_of_hitbox_y < rocket->pos.y && rocket->pos.y < end_of_hitbox_y) {
+            ship->destroyed = true;
+            rocket->destroyed = true;
+            printf("destroying ship...\n");
+        }
+        }
+    }
     // remove destroyed entities
     
     

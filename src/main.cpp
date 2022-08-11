@@ -1,5 +1,6 @@
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
+#include "SDL2/SDL_main.h"
 #include "SDL2/SDL_rect.h"
 #include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_events.h"
@@ -23,15 +24,16 @@
 #define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
 #define ENEMY2_SHIP_ASSET_PATH "./assets/enemy2.png"
 #define ENEMY3_SHIP_ASSET_PATH "./assets/enemy3.png"
-#define ENEMY_GRID_COLS 2
-#define ENEMY_GRID_ROWS 2
+#define ENEMY_GRID_COLS 1
+#define ENEMY_GRID_ROWS 1
 #define ENEMY_CHANCE_TO_MOVE 100
 #define FONT_PATH "./assets/Go-Bold.ttf"
-#define FONT_SIZE 1280
+#define FONT_SIZE 120
+#define MSG_WIN "You won"
+#define MSG_LOST "You lost"
 
 struct Ship;
 struct Rocket;
-
 
 SDL_Rect* ship_get_rect(Ship* ship);
 SDL_Surface* rocket_surface;
@@ -40,38 +42,58 @@ SDL_Rect center_result_text_rect;
 std::vector<Ship*> ships;
 SDL_Renderer* main_renderer;
 std::vector<Rocket*> rockets;
-SDL_Texture* win_result_texture;
-SDL_Texture* loss_result_texture;
+SDL_Texture* win_msg_texture;
+SDL_Texture* loss_msg_texture;
+SDL_Rect win_msg_rect;
+SDL_Rect lost_msg_rect;
 
 
-SDL_Color TextColor = { 255, 0, 0, 255};
+
 
 int random_number() {
     return rand() % (ENEMY_CHANCE_TO_MOVE + 9 + 1);
 }
 
-void check_error() {
+void check_error_sdl() {
     printf("%s", SDL_GetError());
     exit(1);
 }
+void check_error_sdl_text() {
+    printf("%s", TTF_GetError());
+    exit(1);
+}
 
-SDL_Texture* create_message(std::string msg) {
+SDL_Texture* make_texts() {
     TTF_Init();
     TTF_Font *font = TTF_OpenFont(FONT_PATH, FONT_SIZE);
     if (!font) {
-        printf("ttf error: %s", TTF_GetError());
-        exit(1);
+        check_error_sdl_text();
     }
+    SDL_Color text_color = { 0xFF, 0xFF, 0xFF, 0xFF};
+    
+    SDL_Surface* win_surface = TTF_RenderText_Solid(font, MSG_WIN, text_color);
+    if (win_surface == NULL) check_error_sdl_text();
+    SDL_Surface* lost_surface = TTF_RenderText_Solid(font, MSG_LOST, text_color);
+    if (lost_surface == NULL) check_error_sdl_text();
+    
+    SDL_Texture* win_texture = SDL_CreateTextureFromSurface(main_renderer, win_surface);
+    if (win_texture == NULL) check_error_sdl_text();
+    SDL_Texture* lost_texture = SDL_CreateTextureFromSurface(main_renderer, lost_surface);
+    if (lost_surface == NULL) check_error_sdl_text();
 
+    win_msg_rect.x = (WINDOW_WIDTH - win_surface->w) * 0.5; // Center horizontaly
+    win_msg_rect.y = (WINDOW_HEIGHT - win_surface->h) * 0.5; // Center verticaly
+    win_msg_rect.w = win_surface->w;
+    win_msg_rect.h = win_surface->h;
 
-    SDL_Surface* TextSurface = TTF_RenderText_Solid(font, msg.c_str(), TextColor);
-    SDL_Texture* TextTexture = SDL_CreateTextureFromSurface(main_renderer, TextSurface);
-    center_result_text_rect.x = WINDOW_WIDTH - TextSurface->w * 0.5; // Center horizontaly
-    center_result_text_rect.y = WINDOW_HEIGHT - TextSurface->h * 0.5; // Center verticaly
-    center_result_text_rect.w = TextSurface->w;
-    center_result_text_rect.h = TextSurface->h;
+    lost_msg_rect.x = (WINDOW_WIDTH - lost_surface->w) * 0.5; // Center horizontaly
+    lost_msg_rect.y = (WINDOW_HEIGHT - lost_surface->h) * 0.5; // Center verticaly
+    lost_msg_rect.w = lost_surface->w;
+    lost_msg_rect.h = lost_surface->h;
+
     // After you create the texture you can release the surface memory allocation because we actually render the texture not the surface.
-    SDL_FreeSurface(TextSurface);
+    SDL_FreeSurface(win_surface);
+    SDL_FreeSurface(lost_surface);
     TTF_Quit();
 }
 SDL_Surface* optimize_surface(SDL_Surface* surface, SDL_PixelFormat* format) {
@@ -87,7 +109,7 @@ SDL_Surface* load_png(std::string path) {
 }
 
 void set_background_color_for_surface(SDL_Surface* surface, u8 r, u8 g, u8 b) {
-    if(SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, r, g, b)) < 0 ) check_error();
+    if(SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, r, g, b)) < 0 ) check_error_sdl();
 }
 
 
@@ -95,7 +117,7 @@ void set_background_color_for_surface(SDL_Surface* surface, u8 r, u8 g, u8 b) {
 SDL_Window* init_main_window(){
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
-        check_error();
+        check_error_sdl();
     int imgFlags = IMG_INIT_PNG;
     if(!(IMG_Init(imgFlags) & imgFlags)) {
         printf("%s", IMG_GetError());
@@ -106,9 +128,7 @@ SDL_Window* init_main_window(){
     return window;
 }
 
-// ------------------------------- Game stuff -----------------------
-const std::string YOU_WON_TEXT = "You won, nice job";
-const std::string YOU_LOST_TEXT = "You lost, get gud";
+// ------------------------------- Game stuff --------------------------------
 
 enum Side {
     Side_Player,
@@ -468,16 +488,25 @@ void update_states() {
 
 void render(SDL_Window* window) {
     SDL_RenderClear(main_renderer);
+
+    printf("putting text at x: %d\n", win_msg_rect.x);
+    printf("putting text at y: %d\n", win_msg_rect.y);
+    printf("putting text at h: %d\n", win_msg_rect.h);
+    printf("putting text at w: %d\n", win_msg_rect.w);
+
+    SDL_RenderCopy(main_renderer, win_msg_texture, NULL, &win_msg_rect);
+    int a = 1 + 2;
+    SDL_RenderPresent(main_renderer);
+    return;
     update_states();
 
-    // @TODO check win or loss and render the screen for them
     if (result != GameResult_OnGoing) {
         if (result == GameResult_Win) {
-            SDL_RenderCopy(main_renderer, win_result_texture, NULL, &center_result_text_rect);
+            SDL_RenderCopy(main_renderer, win_msg_texture, NULL, &win_msg_rect);
             SDL_RenderPresent(main_renderer);
             return;
         } else {
-            SDL_RenderCopy(main_renderer, loss_result_texture, NULL, &center_result_text_rect);
+            SDL_RenderCopy(main_renderer, loss_msg_texture, NULL, &lost_msg_rect);
             SDL_RenderPresent(main_renderer);
             return;
         }
@@ -598,10 +627,9 @@ int main() {
     SDL_Texture* enemy3_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy3_ship_surface);
     rocket_texture = SDL_CreateTextureFromSurface(main_renderer, rocket_surface);
 
-    win_result_texture = create_message("You WON");
-    loss_result_texture = create_message("You lost");
-    printf("center text: x %d", center_result_text_rect.x);
-    printf("center text: y %d", center_result_text_rect.y);
+    make_texts();
+    printf("center text: x %d\n", win_msg_rect.x);
+    printf("center text: y %d\n", win_msg_rect.y);
     
     if (player_ship_texture == NULL) printf("cannot create player ship texture\n: %s", SDL_GetError());
 

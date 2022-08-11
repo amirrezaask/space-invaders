@@ -1,5 +1,7 @@
 #include "SDL2/SDL.h"
-#include "SDL2/SDL_Image.h"
+#include "SDL2/SDL_image.h"
+#include "SDL2/SDL_rect.h"
+#include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_events.h"
 #include "SDL2/SDL_keycode.h"
 #include "SDL2/SDL_pixels.h"
@@ -21,9 +23,11 @@
 #define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
 #define ENEMY2_SHIP_ASSET_PATH "./assets/enemy2.png"
 #define ENEMY3_SHIP_ASSET_PATH "./assets/enemy3.png"
-#define ENEMY_GRID_COLS 5
-#define ENEMY_GRID_ROWS 5
+#define ENEMY_GRID_COLS 2
+#define ENEMY_GRID_ROWS 2
 #define ENEMY_CHANCE_TO_MOVE 100
+#define FONT_PATH "./assets/Go-Bold.ttf"
+#define FONT_SIZE 1280
 
 struct Ship;
 struct Rocket;
@@ -32,9 +36,15 @@ struct Rocket;
 SDL_Rect* ship_get_rect(Ship* ship);
 SDL_Surface* rocket_surface;
 SDL_Texture* rocket_texture;
+SDL_Rect center_result_text_rect;
 std::vector<Ship*> ships;
 SDL_Renderer* main_renderer;
 std::vector<Rocket*> rockets;
+SDL_Texture* win_result_texture;
+SDL_Texture* loss_result_texture;
+
+
+SDL_Color TextColor = { 255, 0, 0, 255};
 
 int random_number() {
     return rand() % (ENEMY_CHANCE_TO_MOVE + 9 + 1);
@@ -45,6 +55,25 @@ void check_error() {
     exit(1);
 }
 
+SDL_Texture* create_message(std::string msg) {
+    TTF_Init();
+    TTF_Font *font = TTF_OpenFont(FONT_PATH, FONT_SIZE);
+    if (!font) {
+        printf("ttf error: %s", TTF_GetError());
+        exit(1);
+    }
+
+
+    SDL_Surface* TextSurface = TTF_RenderText_Solid(font, msg.c_str(), TextColor);
+    SDL_Texture* TextTexture = SDL_CreateTextureFromSurface(main_renderer, TextSurface);
+    center_result_text_rect.x = WINDOW_WIDTH - TextSurface->w * 0.5; // Center horizontaly
+    center_result_text_rect.y = WINDOW_HEIGHT - TextSurface->h * 0.5; // Center verticaly
+    center_result_text_rect.w = TextSurface->w;
+    center_result_text_rect.h = TextSurface->h;
+    // After you create the texture you can release the surface memory allocation because we actually render the texture not the surface.
+    SDL_FreeSurface(TextSurface);
+    TTF_Quit();
+}
 SDL_Surface* optimize_surface(SDL_Surface* surface, SDL_PixelFormat* format) {
     SDL_Surface* optimized = SDL_ConvertSurface(surface, format, 0);
     SDL_FreeSurface(surface);
@@ -151,7 +180,6 @@ void make_rocket(int x, int y, Direction direction, Side side) {
     rocket->texture = rocket_texture;
     rocket->direction = direction;
     rockets.push_back(rocket);
-    printf("created a rocket...\n");
 }
 
 Ship* make_ship(int x, int y, int w, int h, SDL_Texture* texture, Side side) {
@@ -374,7 +402,8 @@ void update_states() {
     for (Rocket* rocket: rockets) {
         move_rocket(rocket);
     }
-    // find colisions of rockets
+    // @TODO: find colisions of rockets
+    
     // find colisions of player and enemies
     for (int i = 1; i<ships.size(); i++) {
         auto player = ships[0];
@@ -389,7 +418,6 @@ void update_states() {
         if (start_of_hitbox_x < enemy->pos.x && enemy->pos.x < end_of_hitbox_x && start_of_hitbox_y < enemy->pos.y && enemy->pos.y < end_of_hitbox_y) {
             player->destroyed = true;
             enemy->destroyed = true;
-            printf("destroying ship...\n");
         }
       
     }
@@ -406,12 +434,21 @@ void update_states() {
         if (start_of_hitbox_x < rocket->pos.x && rocket->pos.x < end_of_hitbox_x && start_of_hitbox_y < rocket->pos.y && rocket->pos.y < end_of_hitbox_y) {
             ship->destroyed = true;
             rocket->destroyed = true;
-            printf("destroying ship...\n");
         }
         }
     }
     // remove destroyed entities
-    
+    std::vector<Ship*> new_ships;
+    for (Ship* ship: ships) {
+        if (!ship->destroyed) new_ships.push_back(ship);
+    }
+    std::vector<Rocket*> new_rockets;
+    for (Rocket* rocket: rockets) {
+        if (!rocket->destroyed) new_rockets.push_back(rocket);
+    }
+
+    ships = new_ships;
+    rockets = new_rockets;
     
     // move ships
     for (int i = 1; i < ships.size(); i ++ ) {
@@ -436,11 +473,13 @@ void render(SDL_Window* window) {
     // @TODO check win or loss and render the screen for them
     if (result != GameResult_OnGoing) {
         if (result == GameResult_Win) {
-            printf("You won\n");
-            exit(0);
+            SDL_RenderCopy(main_renderer, win_result_texture, NULL, &center_result_text_rect);
+            SDL_RenderPresent(main_renderer);
+            return;
         } else {
-            printf("You Lost\n");
-            exit(0);
+            SDL_RenderCopy(main_renderer, loss_result_texture, NULL, &center_result_text_rect);
+            SDL_RenderPresent(main_renderer);
+            return;
         }
     }
 
@@ -467,7 +506,6 @@ void game_loop(SDL_Window* window) {
             case SDL_KEYDOWN: {
                 switch (event.key.keysym.sym) {
                 case SDLK_SPACE: {
-                    printf("Shooting rocket...\n");
                     shoot_rocket(ships[0]);
                     break;
                 }
@@ -560,6 +598,11 @@ int main() {
     SDL_Texture* enemy3_ship_texture = SDL_CreateTextureFromSurface(main_renderer, enemy3_ship_surface);
     rocket_texture = SDL_CreateTextureFromSurface(main_renderer, rocket_surface);
 
+    win_result_texture = create_message("You WON");
+    loss_result_texture = create_message("You lost");
+    printf("center text: x %d", center_result_text_rect.x);
+    printf("center text: y %d", center_result_text_rect.y);
+    
     if (player_ship_texture == NULL) printf("cannot create player ship texture\n: %s", SDL_GetError());
 
     rocket_surface = load_png(ROCKET_ASSET_PATH);

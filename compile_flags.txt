@@ -1,3 +1,5 @@
 -I/opt/homebrew/include
 -L/opt/homebrew/lib
 -lSDL2
+-lSDL2_ttf
+-lSDL2_Image

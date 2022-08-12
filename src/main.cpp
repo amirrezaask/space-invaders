@@ -473,7 +473,7 @@ void update_states() {
 			int start_of_hitbox_x = ship->pos.x;
 			int end_of_hitbox_x = start_of_hitbox_x + ship->w;
 
-			if (start_of_hitbox_x < rocket->pos.x && rocket->pos.x < end_of_hitbox_x && start_of_hitbox_y < rocket->pos.y && rocket->pos.y < end_of_hitbox_y) {
+			if (start_of_hitbox_x < rocket->pos.x && rocket->pos.x < end_of_hitbox_x && start_of_hitbox_y < rocket->pos.y && rocket->pos.y < end_of_hitbox_y && ship->side != rocket->side) {
 				ship->destroyed = true;
 				rocket->destroyed = true;
 			}

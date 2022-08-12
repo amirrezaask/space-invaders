@@ -25,8 +25,8 @@
 #define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
 #define ENEMY2_SHIP_ASSET_PATH "./assets/enemy2.png"
 #define ENEMY3_SHIP_ASSET_PATH "./assets/enemy3.png"
-#define ENEMY_GRID_COLS  10
-#define ENEMY_GRID_ROWS 10
+#define ENEMY_GRID_COLS  3
+#define ENEMY_GRID_ROWS 2
 #define ENEMY_CHANCE_TO_MOVE 100
 #define ENEMY_CHANCE_TO_SHOOT 200
 #define FONT_PATH "./assets/Go-Bold.ttf"
@@ -441,8 +441,9 @@ bool ships_have_colision(Ship* ship1, Ship* ship2) {
 }
 void update_states() {
 	// enemies that can shoot
-	for (Ship* ship: ships) 
+	for (int i = 1;i < ships.size(); i++) 
 	{
+		auto ship = ships[i];
 		if (can_shoot()) {
 			shoot_rocket(ship);
 		}

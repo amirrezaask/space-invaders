@@ -443,12 +443,11 @@ void update_states() {
 
 	// find colisions of player and enemies
 
-	auto player = ships[0];
 	for (int i = 1; i < ships.size(); i++) {
-		if (ships_have_colision(player, ships[i])) {
-			player->destroyed = true;
+		if (ships_have_colision(ships[0], ships[i])) {
+			ships[0]->destroyed = true;
 			ships[i]->destroyed = true;
-			printf("player and %d have colision\n", i);
+			printf("%d and %d have colision...\n", 0, i);
 		}
 		
 	}
@@ -470,9 +469,16 @@ void update_states() {
 	}
 	// remove destroyed entities
 	std::vector<Ship*> new_ships;
-	for (Ship* ship : ships) {
-		if (!ship->destroyed) new_ships.push_back(ship);
-		else delete ship;
+	for (int i = 0; i < ships.size(); i ++) {
+        Ship* ship = ships[i];
+		if (!ship->destroyed) {
+            new_ships.push_back(ship);
+            continue;
+        }
+        else delete ship;
+        printf("ship %d is destroyed...\n", i);
+
+
 	}
 	std::vector<Rocket*> new_rockets;
 	for (Rocket* rocket : rockets) {
@@ -496,7 +502,7 @@ void update_states() {
 	}
 	// check for win or lose
 
-	if (ships.size() > 0 && ships[0]->side != Side_Player) {
+	if (ships[0]->side != Side_Player) {
         printf("lost the game...\n");
 		result = GameResult_Loss;
 	}
@@ -626,7 +632,7 @@ void add_enemies() {
 				(WINDOW_HEIGHT / 8) + i * enemy_y_padding,
 				texture_width, texture_height,
 				texture,
-				Side_Player);
+				Side_Enemy);
 		}
 	}
 }

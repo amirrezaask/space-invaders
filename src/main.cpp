@@ -25,8 +25,8 @@
 #define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
 #define ENEMY2_SHIP_ASSET_PATH "./assets/enemy2.png"
 #define ENEMY3_SHIP_ASSET_PATH "./assets/enemy3.png"
-#define ENEMY_GRID_COLS  5
-#define ENEMY_GRID_ROWS 5
+#define ENEMY_GRID_COLS  10
+#define ENEMY_GRID_ROWS 10
 #define ENEMY_CHANCE_TO_MOVE 100
 #define ENEMY_CHANCE_TO_SHOOT 200
 #define FONT_PATH "./assets/Go-Bold.ttf"
@@ -50,8 +50,8 @@ std::vector<Rocket*> rockets;
 SDL_Renderer* main_renderer;
 SDL_Texture* win_msg_texture;
 SDL_Texture* loss_msg_texture;
-SDL_Rect win_msg_rect;
-SDL_Rect lost_msg_rect;
+SDL_Rect win_msg_rect{};
+SDL_Rect lost_msg_rect{};
 
 
 void check_error(std::string prefix) {
@@ -72,10 +72,10 @@ void make_texts() {
 	SDL_Surface* lost_surface = TTF_RenderText_Solid(font, MSG_LOST, text_color);
 	if (!lost_surface) check_error("creating lost msg surface");
 
-	SDL_Texture* win_texture = SDL_CreateTextureFromSurface(main_renderer, win_surface);
-	if (!win_texture) check_error("creating win msg texture");
-	SDL_Texture* lost_texture = SDL_CreateTextureFromSurface(main_renderer, lost_surface);
-	if (!lost_surface) check_error("creating lost msg texture");
+	win_msg_texture = SDL_CreateTextureFromSurface(main_renderer, win_surface);
+	if (!win_msg_texture) check_error("creating win msg texture");
+	loss_msg_texture = SDL_CreateTextureFromSurface(main_renderer, lost_surface);
+	if (!loss_msg_texture) check_error("creating lost msg texture");
 
 	win_msg_rect.x = (WINDOW_WIDTH - win_surface->w) * 0.5; // Center horizontaly
 	win_msg_rect.y = (WINDOW_HEIGHT - win_surface->h) * 0.5; // Center verticaly
@@ -675,6 +675,8 @@ int main(int argc, char* argv[], char* environment[]) {
 	add_enemies();
 	std::cout << "Window width: " << WINDOW_WIDTH << " Window Height: " << WINDOW_HEIGHT << "\n";
 	std::cout << "We have #" << ships.size() << " in game.\n";
+	std::cout << "win msg rect x: " << win_msg_rect.x << "\n";
+	std::cout << "win msg rect y: " << win_msg_rect.y << "\n";
 	game_loop(main_window);
 
 	return 0;

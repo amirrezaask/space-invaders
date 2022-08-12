@@ -28,6 +28,7 @@
 #define ENEMY_GRID_COLS  5
 #define ENEMY_GRID_ROWS 5
 #define ENEMY_CHANCE_TO_MOVE 100
+#define ENEMY_CHANCE_TO_SHOOT 200
 #define FONT_PATH "./assets/Go-Bold.ttf"
 #define FONT_SIZE 120
 #define MSG_WIN "You won"
@@ -52,12 +53,6 @@ SDL_Texture* loss_msg_texture;
 SDL_Rect win_msg_rect;
 SDL_Rect lost_msg_rect;
 
-
-
-
-int random_number() {
-	return rand() % (ENEMY_CHANCE_TO_MOVE + 9 + 1);
-}
 
 void check_error(std::string prefix) {
 	std::cout << "Checking Error: " << prefix << ": " << SDL_GetError() << "\n";
@@ -153,7 +148,7 @@ enum Direction {
 };
 
 Direction get_random_direction() {
-	int num = random_number();
+	int num = rand() % (ENEMY_CHANCE_TO_MOVE + 9 + 1);;
 	switch (num) {
 	case 1: return Direction_Up;
 	case 2: return Direction_Down;
@@ -165,6 +160,16 @@ Direction get_random_direction() {
 	case 8: return Direction_UpLeft;
 	default: return Direction_NoMove;
 	}
+}
+
+bool can_shoot() {
+	int num = rand() % (ENEMY_CHANCE_TO_SHOOT);;
+	if (num == 0) {
+		return true;
+	}
+
+	return false;
+
 }
 
 struct Vector2 {
@@ -435,6 +440,13 @@ bool ships_have_colision(Ship* ship1, Ship* ship2) {
 	return false;
 }
 void update_states() {
+	// enemies that can shoot
+	for (Ship* ship: ships) 
+	{
+		if (can_shoot()) {
+			shoot_rocket(ship);
+		}
+	}
 	// update rocket positions
 	for (Rocket* rocket : rockets) {
 		move_rocket(rocket);

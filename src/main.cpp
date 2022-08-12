@@ -36,7 +36,7 @@
 
 struct Ship;
 struct Rocket;
-bool quit = false;
+bool game_has_ended = false;
 
 SDL_Rect* ship_get_rect(Ship* ship);
 
@@ -451,10 +451,8 @@ void update_states() {
 	for (Rocket* rocket : rockets) {
 		move_rocket(rocket);
 	}
-	// @TODO: find colisions of rockets
 
 	// find colisions of player and enemies
-
 	for (int i = 1; i < ships.size(); i++) {
 		if (ships_have_colision(ships[0], ships[i])) {
 			ships[0]->destroyed = true;
@@ -463,6 +461,7 @@ void update_states() {
 		}
 		
 	}
+
 	// find colisions of ships and rockets
 	for (Ship* ship : ships) {
 		for (Rocket* rocket : rockets) {
@@ -479,6 +478,7 @@ void update_states() {
 			}
 		}
 	}
+
 	// remove destroyed entities
 	std::vector<Ship*> new_ships;
 	for (int i = 0; i < ships.size(); i ++) {
@@ -514,10 +514,7 @@ void update_states() {
 	}
 	// check for win or lose
 
-	if (ships[0]->side != Side_Player) {
-        printf("lost the game...\n");
-		result = GameResult_Loss;
-	}
+	if (ships[0]->side != Side_Player) result = GameResult_Loss;
 	if (ships.size() == 1 && ships[0]->side == Side_Player) result = GameResult_Win;
 }
 
@@ -534,7 +531,7 @@ void render() {
 
     if (result != GameResult_OnGoing) {
 		std::cout << "ending game ... " << result << "\n";
-		quit = true;
+		game_has_ended = true;
 		if (result == GameResult_Win) {
 			SDL_RenderCopy(main_renderer, win_msg_texture, NULL, &win_msg_rect);
 		}
@@ -542,7 +539,6 @@ void render() {
 			SDL_RenderCopy(main_renderer, loss_msg_texture, NULL, &lost_msg_rect);
 		}
         SDL_RenderPresent(main_renderer);
-        quit = true;
         return;
 	}
 	for (Rocket* rocket : rockets) {
@@ -560,15 +556,14 @@ void render() {
 }
 
 void game_loop(SDL_Window* window) {
-	while (!quit) {
+	while (!game_has_ended) {
 		render();
 
 		SDL_Event event;
 		if (SDL_PollEvent(&event) > 0) {
 			switch (event.type) {
 			case SDL_QUIT: {
-				quit = true;
-				break;
+				return;
 			}
 			case SDL_KEYDOWN: {
 				switch (event.key.keysym.sym) {
@@ -608,6 +603,8 @@ void game_loop(SDL_Window* window) {
 
 		}
 	}
+
+	SDL_Delay(2000);
 }
 
 void add_enemies() {

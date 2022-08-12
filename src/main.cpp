@@ -1,3 +1,4 @@
+#include "SDL2/SDL_timer.h"
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
@@ -41,9 +42,11 @@ SDL_Surface* rocket_surface;
 SDL_Texture* rocket_texture;
 
 SDL_Rect center_result_text_rect;
+
 std::vector<Ship*> ships;
-SDL_Renderer* main_renderer;
 std::vector<Rocket*> rockets;
+
+SDL_Renderer* main_renderer;
 SDL_Texture* win_msg_texture;
 SDL_Texture* loss_msg_texture;
 SDL_Rect win_msg_rect;
@@ -379,12 +382,15 @@ SDL_Rect* get_rocket_rect(Rocket* rocket) {
 }
 
 void shoot_rocket(Ship* ship) {
+
 	Direction direction;
 	int delta;
+    if (!ship) return;
 	if (ship->side == Side_Enemy) {
 		direction = Direction_Down;
 		delta = 1;
 	}
+
 
 
 	if (ship->side == Side_Player) {
@@ -483,33 +489,33 @@ void update_states() {
 	if (ships.size() == 1 && ships[0]->side == Side_Player) result = GameResult_Win;
 }
 
-void check_for_finish() {
-	if (result != GameResult_OnGoing) {
+void render() {
+    int frameStart = SDL_GetTicks();
+    if (SDL_RenderClear(main_renderer) < 0) check_error("cannot clear render");
+	update_states();
+
+    //	check_for_finish();
+    if (result != GameResult_OnGoing) {
 		if (result == GameResult_Win) {
 			SDL_RenderCopy(main_renderer, win_msg_texture, NULL, &win_msg_rect);
 		}
 		else {
 			SDL_RenderCopy(main_renderer, loss_msg_texture, NULL, &lost_msg_rect);
 		}
+        SDL_RenderPresent(main_renderer);
+        return;
 	}
-	SDL_RenderPresent(main_renderer);
-
-}
-
-void render() {
-	if (SDL_RenderClear(main_renderer) < 0) check_error("cannot clear render");
-	update_states();
-
-	check_for_finish();
-
 	for (Rocket* rocket : rockets) {
 		draw_rocket(rocket);
 	}
-
 	for (Ship* ship : ships) {
 		draw_ship(ship);
 	}
 
+
+    int frame_end = SDL_GetTicks();
+    float elapsedMS = (frame_end - frameStart) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+    SDL_Delay(floor(16.666f - elapsedMS)); // 60 FPS
 	SDL_RenderPresent(main_renderer);
 }
 
@@ -527,6 +533,7 @@ void game_loop(SDL_Window* window) {
 			case SDL_KEYDOWN: {
 				switch (event.key.keysym.sym) {
 				case SDLK_SPACE: {
+                    printf("space\n");
 					shoot_rocket(ships[0]);
 					break;
 				}

@@ -25,8 +25,8 @@
 #define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
 #define ENEMY2_SHIP_ASSET_PATH "./assets/enemy2.png"
 #define ENEMY3_SHIP_ASSET_PATH "./assets/enemy3.png"
-#define ENEMY_GRID_COLS 10
-#define ENEMY_GRID_ROWS 10
+#define ENEMY_GRID_COLS  5
+#define ENEMY_GRID_ROWS 5
 #define ENEMY_CHANCE_TO_MOVE 100
 #define FONT_PATH "./assets/Go-Bold.ttf"
 #define FONT_SIZE 120
@@ -497,6 +497,7 @@ void update_states() {
 	// check for win or lose
 
 	if (ships.size() > 0 && ships[0]->side != Side_Player) {
+        printf("lost the game...\n");
 		result = GameResult_Loss;
 	}
 	if (ships.size() == 1 && ships[0]->side == Side_Player) result = GameResult_Win;
@@ -523,6 +524,7 @@ void render() {
 			SDL_RenderCopy(main_renderer, loss_msg_texture, NULL, &lost_msg_rect);
 		}
         SDL_RenderPresent(main_renderer);
+        quit = true;
         return;
 	}
 	for (Rocket* rocket : rockets) {
@@ -587,10 +589,6 @@ void game_loop(SDL_Window* window) {
 			};
 
 		}
-	}
-
-	if (quit) {
-		SDL_Delay(1000);
 	}
 }
 
@@ -663,10 +661,7 @@ int main(int argc, char* argv[], char* environment[]) {
 	std::cout << "Window width: " << WINDOW_WIDTH << " Window Height: " << WINDOW_HEIGHT << "\n";
 	std::cout << "We have #" << ships.size() << " in game.\n";
 	game_loop(main_window);
-	/*update_states();
-	for (Ship* ship : ships) {
-		std::cout << ship->side << "-> side \n";
-	}*/
+
 	return 0;
 
 }

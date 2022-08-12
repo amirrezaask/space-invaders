@@ -25,8 +25,8 @@
 #define ENEMY1_SHIP_ASSET_PATH "./assets/enemy1.png"
 #define ENEMY2_SHIP_ASSET_PATH "./assets/enemy2.png"
 #define ENEMY3_SHIP_ASSET_PATH "./assets/enemy3.png"
-#define ENEMY_GRID_COLS 5
-#define ENEMY_GRID_ROWS 5
+#define ENEMY_GRID_COLS 10
+#define ENEMY_GRID_ROWS 10
 #define ENEMY_CHANCE_TO_MOVE 100
 #define FONT_PATH "./assets/Go-Bold.ttf"
 #define FONT_SIZE 120
@@ -35,10 +35,10 @@
 
 struct Ship;
 struct Rocket;
+bool quit = false;
 
 SDL_Rect* ship_get_rect(Ship* ship);
 
-SDL_Surface* rocket_surface;
 SDL_Texture* rocket_texture;
 
 SDL_Rect center_result_text_rect;
@@ -198,10 +198,11 @@ void make_rocket(int x, int y, Direction direction, Side side) {
 	rocket->side = side;
 	rocket->texture = rocket_texture;
 	rocket->direction = direction;
+	rocket->destroyed = false;
 	rockets.push_back(rocket);
 }
 
-Ship* make_ship(int x, int y, int w, int h, SDL_Texture* texture, Side side) {
+void make_ship(int x, int y, int w, int h, SDL_Texture* texture, Side side) {
 	Ship* ship = new Ship;
 	Vector2 pos;
 	pos.x = x;
@@ -211,7 +212,8 @@ Ship* make_ship(int x, int y, int w, int h, SDL_Texture* texture, Side side) {
 	ship->pos = pos;
 	ship->side = side;
 	ship->texture = texture;
-	return ship;
+	ship->destroyed = false;
+	ships.push_back(ship);
 }
 bool player_can_move_to_this(Ship* ship, Direction direction) {
 	int new_y;
@@ -372,17 +374,18 @@ SDL_Rect* ship_get_rect(Ship* ship) {
 }
 
 SDL_Rect* get_rocket_rect(Rocket* rocket) {
+	int h, w;
+	if (SDL_QueryTexture(rocket_texture, NULL, NULL, &w, &h) < 0) check_error("cannot get rocket surface");
 	SDL_Rect* rect = new SDL_Rect;
 	rect->x = rocket->pos.x;
 	rect->y = rocket->pos.y;
-	rect->h = rocket_surface->h;
-	rect->w = rocket_surface->w;
+	rect->h = h;
+	rect->w = w;
 
 	return rect;
 }
 
 void shoot_rocket(Ship* ship) {
-
 	Direction direction;
 	int delta;
     if (!ship) return;
@@ -390,8 +393,6 @@ void shoot_rocket(Ship* ship) {
 		direction = Direction_Down;
 		delta = 1;
 	}
-
-
 
 	if (ship->side == Side_Player) {
 		direction = Direction_Up;
@@ -419,7 +420,20 @@ void draw_rocket(Rocket* rocket) {
 
 GameResult result = GameResult_OnGoing;
 
+bool ships_have_colision(Ship* ship1, Ship* ship2) {
 
+	int start_of_hitbox_y = ship1->pos.y;
+	int end_of_hitbox_y = start_of_hitbox_y + ship1->h;
+
+	int start_of_hitbox_x = ship1->pos.x;
+	int end_of_hitbox_x = start_of_hitbox_x + ship1->w;
+
+	if (start_of_hitbox_x < ship2->pos.x && ship2->pos.x < end_of_hitbox_x && start_of_hitbox_y < ship2->pos.y && ship2->pos.y < end_of_hitbox_y) {
+		return true;
+	}
+
+	return false;
+}
 void update_states() {
 	// update rocket positions
 	for (Rocket* rocket : rockets) {
@@ -428,21 +442,15 @@ void update_states() {
 	// @TODO: find colisions of rockets
 
 	// find colisions of player and enemies
+
+	auto player = ships[0];
 	for (int i = 1; i < ships.size(); i++) {
-		auto player = ships[0];
-		auto enemy = ships[i];
-
-		int start_of_hitbox_y = player->pos.y;
-		int end_of_hitbox_y = start_of_hitbox_y + player->h;
-
-		int start_of_hitbox_x = player->pos.x;
-		int end_of_hitbox_x = start_of_hitbox_x + player->w;
-
-		if (start_of_hitbox_x < enemy->pos.x && enemy->pos.x < end_of_hitbox_x && start_of_hitbox_y < enemy->pos.y && enemy->pos.y < end_of_hitbox_y) {
+		if (ships_have_colision(player, ships[i])) {
 			player->destroyed = true;
-			enemy->destroyed = true;
+			ships[i]->destroyed = true;
+			printf("player and %d have colision\n", i);
 		}
-
+		
 	}
 	// find colisions of ships and rockets
 	for (Ship* ship : ships) {
@@ -464,10 +472,13 @@ void update_states() {
 	std::vector<Ship*> new_ships;
 	for (Ship* ship : ships) {
 		if (!ship->destroyed) new_ships.push_back(ship);
+		else delete ship;
 	}
 	std::vector<Rocket*> new_rockets;
 	for (Rocket* rocket : rockets) {
 		if (!rocket->destroyed) new_rockets.push_back(rocket);
+		else delete rocket;
+
 	}
 
 	ships = new_ships;
@@ -485,8 +496,16 @@ void update_states() {
 	}
 	// check for win or lose
 
-	if (ships[0]->side != Side_Player) result = GameResult_Loss;
+	if (ships.size() > 0 && ships[0]->side != Side_Player) {
+		result = GameResult_Loss;
+	}
 	if (ships.size() == 1 && ships[0]->side == Side_Player) result = GameResult_Win;
+}
+
+void print_ships() {
+	for (int i = 0; i < ships.size(); i++) {
+		std::cout << "id: " << i << " side: " << ships[i]->side << "\n";
+	}
 }
 
 void render() {
@@ -494,8 +513,9 @@ void render() {
     if (SDL_RenderClear(main_renderer) < 0) check_error("cannot clear render");
 	update_states();
 
-    //	check_for_finish();
     if (result != GameResult_OnGoing) {
+		std::cout << "ending game ... " << result << "\n";
+		quit = true;
 		if (result == GameResult_Win) {
 			SDL_RenderCopy(main_renderer, win_msg_texture, NULL, &win_msg_rect);
 		}
@@ -520,9 +540,9 @@ void render() {
 }
 
 void game_loop(SDL_Window* window) {
-	bool quit = false;
 	while (!quit) {
-		//SDL_Delay(1000);
+		render();
+
 		SDL_Event event;
 		if (SDL_PollEvent(&event) > 0) {
 			switch (event.type) {
@@ -533,7 +553,6 @@ void game_loop(SDL_Window* window) {
 			case SDL_KEYDOWN: {
 				switch (event.key.keysym.sym) {
 				case SDLK_SPACE: {
-                    printf("space\n");
 					shoot_rocket(ships[0]);
 					break;
 				}
@@ -568,17 +587,35 @@ void game_loop(SDL_Window* window) {
 			};
 
 		}
-		render();
+	}
+
+	if (quit) {
+		SDL_Delay(1000);
 	}
 }
-std::vector<SDL_Texture*> enemy_textures;
 
 void add_enemies() {
+	SDL_Texture* enemy1_ship_texture = load_png_as_texture(main_renderer, ENEMY1_SHIP_ASSET_PATH);
+	SDL_Texture* enemy2_ship_texture = load_png_as_texture(main_renderer, ENEMY2_SHIP_ASSET_PATH);
+	SDL_Texture* enemy3_ship_texture = load_png_as_texture(main_renderer, ENEMY3_SHIP_ASSET_PATH);
 	for (int i = 0; i < ENEMY_GRID_ROWS; i++) {
 		for (int j = 0; j < ENEMY_GRID_COLS; j++) {
-			Ship* ship = new Ship;
+			SDL_Texture* texture;
+
 			int id = rand() % 3;
-			SDL_Texture* texture = enemy_textures[id];
+			if (id == 0) {
+				texture = enemy1_ship_texture;
+			}
+			else if (id == 1) {
+				texture = enemy2_ship_texture;
+			}
+			else if (id == 2) {
+				texture = enemy3_ship_texture;
+			}
+			else {
+				printf("invalid id for enemy texture\n");
+				exit(1);
+			}
 			int texture_width;
 			int texture_height;
 			SDL_QueryTexture(texture, nullptr, nullptr, &texture_width, &texture_height);
@@ -587,15 +624,11 @@ void add_enemies() {
 			int enemy_y_padding = 100;
 			int x_offset_from_edge = (WINDOW_WIDTH - ((enemy_x_padding * (ENEMY_GRID_COLS - 1)) + (ENEMY_GRID_COLS * texture_width))) / 2;
 
-			ship->pos.x = x_offset_from_edge + (j * enemy_x_padding) + (j - 1 * texture_width);
-			ship->pos.y = (WINDOW_HEIGHT / 8) + i * enemy_y_padding;
-			ship->h = texture_height;
-			ship->w = texture_width;
-			ship->texture = texture;
-			ship->side = Side_Enemy;
-			ship->destroyed = false;
-
-			ships.push_back(ship);
+			make_ship(x_offset_from_edge + (j * enemy_x_padding) + (j - 1 * texture_width),
+				(WINDOW_HEIGHT / 8) + i * enemy_y_padding,
+				texture_width, texture_height,
+				texture,
+				Side_Player);
 		}
 	}
 }
@@ -609,41 +642,31 @@ int main(int argc, char* argv[], char* environment[]) {
 
 	
 	SDL_Texture* player_ship_texture = load_png_as_texture(main_renderer, PLAYER_SHIP_ASSET_PATH);
-	SDL_Texture* enemy1_ship_texture = load_png_as_texture(main_renderer, ENEMY1_SHIP_ASSET_PATH);
-	SDL_Texture* enemy2_ship_texture = load_png_as_texture(main_renderer, ENEMY2_SHIP_ASSET_PATH);
-	SDL_Texture* enemy3_ship_texture = load_png_as_texture(main_renderer, ENEMY3_SHIP_ASSET_PATH);
+	
 	rocket_texture = load_png_as_texture(main_renderer, ROCKET_ASSET_PATH);
 
 	if (!player_ship_texture ||
-		!enemy1_ship_texture ||
-		!enemy2_ship_texture  ||
-		!enemy3_ship_texture  ||
 		!rocket_texture) check_error("texture creation failed: ");
 	
 	int player_ship_h, player_ship_w;
 	
-	SDL_QueryTexture(player_ship_texture, NULL, NULL, &player_ship_w, &player_ship_h);
+	if (SDL_QueryTexture(player_ship_texture, NULL, NULL, &player_ship_w, &player_ship_h) < 0) check_error("cannot query player ship");
 	make_texts();
 
-	Ship* player_ship = make_ship((WINDOW_WIDTH - player_ship_h) / 2,
+	make_ship((WINDOW_WIDTH - player_ship_h) / 2,
 		(WINDOW_HEIGHT - (WINDOW_HEIGHT - player_ship_h) / 6),
 		player_ship_w, player_ship_h,
 		player_ship_texture,
 		Side_Player);
 
-
-
-	ships.push_back(player_ship);
-
-	enemy_textures.push_back(enemy1_ship_texture);
-	enemy_textures.push_back(enemy2_ship_texture);
-	enemy_textures.push_back(enemy3_ship_texture);
-
 	add_enemies();
 	std::cout << "Window width: " << WINDOW_WIDTH << " Window Height: " << WINDOW_HEIGHT << "\n";
-	std::cout << "We have #" << ships.size() << "in game.\n";
+	std::cout << "We have #" << ships.size() << " in game.\n";
 	game_loop(main_window);
-
+	/*update_states();
+	for (Ship* ship : ships) {
+		std::cout << ship->side << "-> side \n";
+	}*/
 	return 0;
 
 }

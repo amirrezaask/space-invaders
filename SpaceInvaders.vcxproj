@@ -70,10 +70,14 @@
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);E:\include</IncludePath>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);E:\lib</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)deps\include</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(ProjectDir)deps\lib</LibraryPath>
     <ExternalIncludePath>
     </ExternalIncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)deps\include</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(ProjectDir)deps\lib</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -111,14 +115,26 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);E:\lib\SDL2.lib;E:\lib\SDL2_image.lib;E:\lib\SDL2_ttf.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(ProjectDir)deps\lib\SDL2.lib;$(ProjectDir)deps\lib\SDL2_image.lib;$(ProjectDir)deps\lib\SDL2_ttf.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(TargetDir)assets
 xcopy "$(ProjectDir)assets" "$(TargetDir)assets" /i /d /y /e
-xcopy "E:\lib\SDL2.dll" "$(TargetDir)"
-xcopy "E:\lib\SDL2_image.dll" "$(TargetDir)"
-xcopy "E:\lib\SDL2_ttf.dll" "$(TargetDir)"</Command>
+xcopy "$(ProjectDir)deps\lib\SDL2.dll" "$(TargetDir)"
+xcopy "$(ProjectDir)deps\lib\SDL2_image.dll" "$(TargetDir)"
+xcopy "$(ProjectDir)deps\lib\SDL2_ttf.dll" "$(TargetDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Link>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(ProjectDir)deps\lib\SDL2.lib;$(ProjectDir)deps\lib\SDL2_image.lib;$(ProjectDir)deps\lib\SDL2_ttf.lib</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>mkdir $(TargetDir)assets
+xcopy "$(ProjectDir)assets" "$(TargetDir)assets" /i /d /y /e
+xcopy "$(ProjectDir)deps\lib\SDL2.dll" "$(TargetDir)"
+xcopy "$(ProjectDir)deps\lib\SDL2_image.dll" "$(TargetDir)"
+xcopy "$(ProjectDir)deps\lib\SDL2_ttf.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
